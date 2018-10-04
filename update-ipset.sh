@@ -58,6 +58,7 @@ if [ "${exist_ipset}" != "${fresh_ipset}" ]; then
 		&& echo "${fresh_ipset}" \
 			| awk -v "setname=${fresh_setname}" '/.+/ { printf("add " setname " %s\n", $0) }' \
 			| ipset -exist restore \
+		&& ipset -exist create "${setname}" hash:net \
 		&& ipset swap "${setname}" "${fresh_setname}" \
 		&& ipset destroy "${fresh_setname}"
 fi
