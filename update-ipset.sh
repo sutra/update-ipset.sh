@@ -53,7 +53,7 @@ if [ "${exist_ipset}" != "${fresh_ipset}" ]; then
 		| awk '{print $7}'
 	`
 
-	fresh_setname="`cat /dev/urandom | env LC_CTYPE=C tr -dc 'a-zA-Z0-9' | fold -w 31 | head -n 1`"
+	fresh_setname="`cat /dev/urandom | env LC_CTYPE=C tr -dc 'a-zA-Z0-9' | head -c 31`"
 	ipset create "${fresh_setname}" hash:net maxelem ${fresh_count} \
 		&& echo "${fresh_ipset}" \
 			| awk -v "setname=${fresh_setname}" '/.+/ { printf("add " setname " %s\n", $0) }' \
