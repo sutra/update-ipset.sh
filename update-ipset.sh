@@ -67,10 +67,32 @@ fi
 
 # files
 if [ -n "${files}" ]; then
-	files_lines=`cat ${files} | wc -l`
 	files_setname="`update_ipset_random_setname`"
-	ipset create "${files_setname}" hash:net maxelem ${files_lines}
-	cat ${files} | xargs -I ADD-ENTRY ipset -exist add "${files_setname}" ADD-ENTRY
+	ipset create "${files_setname}" hash:net maxelem 4294967295
+	awk -v setname="${files_setname}" \
+	'
+	{
+		if (/[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/ || /[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/ || /[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\/[0-9]+/) {
+			# ip | fromip-toip | ip/cidr
+			cmd = "ipset -exist add " setname " " $0
+			system(cmd)
+		} else if (/.*(\/[0-9]+)?/) {
+			# domain | domain/cidr
+			cidr = "32"
+			split($0, parts, "/")
+			domain = parts[1]
+			if (parts[2] != "") {
+				cidr = parts[2]
+			}
+			cmd = "dig +short " domain " | grep -E \"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\" | xargs -I ip ipset -exist add " setname " ip/" cidr
+			system(cmd)
+		} else {
+			cmd = "ipset -exist add " setname " " $0
+			system(cmd)
+		}
+	}
+	' \
+	${files}
 	files_ipset="`update_ipset_ipset_list_members "${files_setname}"`"
 	ipset destroy "${files_setname}"
 fi
