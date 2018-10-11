@@ -16,7 +16,7 @@ get-delegated-apnic-latest.sh \
 		-o "${expanded_rirs}" \
 		-c "${cache}" \
 	&& update-ipset.sh \
+		-n chnroute \
 		-i "${expanded_rirs}" \
-		-c CN \
-		-n chnroute
+		-c CN
 ```
