@@ -84,7 +84,7 @@ if [ -n "${files}" ]; then
 			if (parts[2] != "") {
 				cidr = parts[2]
 			}
-			cmd = "dig +short " domain " | grep -E \"[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\" | xargs -I ip ipset -exist add " setname " ip/" cidr
+			cmd = "dig +short " domain " | grep -E \"[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\" | xargs -I ip ipset -exist add " setname " ip/" cidr
 			system(cmd)
 		} else {
 			cmd = "ipset -exist add " setname " " $0
