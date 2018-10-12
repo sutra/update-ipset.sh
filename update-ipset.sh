@@ -72,9 +72,12 @@ if [ -n "${files}" ]; then
 	awk -v setname="${files_setname}" \
 	'
 	{
-		if (/[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/ || /[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/ || /[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\/[0-9]+/) {
+		if (/^$/ || /^#/) {
+			# Empty line, or line starts with #
+			# Skip empty lines and comment lines
+		} else if (/[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/ || /[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/ || /[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\/[0-9]+/) {
 			# ip | fromip-toip | ip/cidr
-			cmd = "ipset -exist add " setname " " $0
+			cmd = "ipset -exist add \"" setname "\" \"" $0 "\""
 			system(cmd)
 		} else if (/.*(\/[0-9]+)?/) {
 			# domain | domain/cidr
@@ -84,10 +87,10 @@ if [ -n "${files}" ]; then
 			if (parts[2] != "") {
 				cidr = parts[2]
 			}
-			cmd = "dig +short " domain " | grep -E \"[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\" | xargs -I ip ipset -exist add " setname " ip/" cidr
+			cmd = "dig +short \"" domain "\" | grep -E \"[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\" | xargs -I ip ipset -exist add \"" setname "\" ip/" cidr
 			system(cmd)
 		} else {
-			cmd = "ipset -exist add " setname " " $0
+			cmd = "ipset -exist add \"" setname "\" \"" $0 "\""
 			system(cmd)
 		}
 	}
