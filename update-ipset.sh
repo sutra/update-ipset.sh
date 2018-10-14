@@ -1,9 +1,4 @@
 #!/bin/sh
-input="./expanded-delegated-apnic-latest"
-cache="./asn"
-asns=""
-files=""
-
 usage() {
 cat << EOF
 usage: $0 <-n SETNAME> [[-c cc]...] [-i input] [[-a AS Number]...] [-C ASN cache directory] [[-d domain]...] [[-f file]...]
