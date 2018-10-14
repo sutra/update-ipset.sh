@@ -1,18 +1,22 @@
 #!/bin/sh
 input="./expanded-delegated-apnic-latest"
+cache="/var/cache/asn"
+asns=""
 files=""
 
 usage() {
 cat << EOF
-usage: $0 <-n SETNAME> [-i input <-c cc>] [[-f file]...]
+usage: $0 <-n SETNAME> [-i input <-c cc>] [[-a AS Number]...] [-C ASN cache directory] [[-f file]...]
 	-n SETNAME
 	-i input expanded delegated apnic file
 	-c ISO 3166 2-letter code
+	-a AS Number
+	-C ASN cache directory, the directory should exists and be writable
 	-f file contains ipset entries
 EOF
 }
 
-while getopts ":n:i:c:f:" o; do
+while getopts ":n:i:c:a:C:f:" o; do
 	case "${o}" in
 		n)
 			setname="${OPTARG}"
@@ -22,6 +26,12 @@ while getopts ":n:i:c:f:" o; do
 			;;
 		c)
 			cc="${OPTARG}"
+			;;
+		a)
+			asns="${asns} ${OPTARG}"
+			;;
+		C)
+			cache="${OPTARG}"
 			;;
 		f)
 			if [ -z "${OPTARG}" -o ! -r "${OPTARG}" ]; then
@@ -52,6 +62,27 @@ update_ipset_ipset_list_members() {
 	ipset -q list "$1" | sed -e '1,/Members:/d'
 }
 
+update_ipset_query_asn() {
+	whois -h "whois.radb.net" -- "-i origin AS${1}" | grep -E "route6?:"
+}
+
+update_ipset_get_asn_cache_file() {
+	local cache_file=`find "${cache}" -mtime -30 -type f -name "$1" 2>/dev/null | head -n 1`
+	if [ -z "${cache_file}" ]; then
+		cache_file="${cache}/$1"
+		update_ipset_query_asn "$1" > "${cache_file}"
+	fi
+	echo "${cache_file}"
+}
+
+update_ipset_read_asn() {
+	if [ -d "${cache}" ]; then
+		cat `update_ipset_get_asn_cache_file "$1"`
+	else
+		update_ipset_query_asn "$1"
+	fi
+}
+
 # exist ipset
 exist_ipset="`update_ipset_ipset_list_members "${setname}" | sort`"
 
@@ -64,6 +95,16 @@ if [ -n "${cc}" ]; then
 		| sed 's/\/32$//g' \
 	`"
 fi
+
+# asns
+for asn in ${asns}; do
+	asn_ipset="`update_ipset_read_asn "${asn}" \
+		| grep '^route:' \
+		| awk '{ print $2 }' \
+		| sed 's/\/32$//g' \
+		`"
+	asns_ipset=$(printf "${asns_ipset}\n${asn_ipset}")
+done
 
 # files
 if [ -n "${files}" ]; then
@@ -101,8 +142,7 @@ if [ -n "${files}" ]; then
 fi
 
 # fresh ipset
-fresh_ipset="${cc_ipset}
-${files_ipset}"
+fresh_ipset=$(printf "${cc_ipset}\n${asns_ipset}\n${files_ipset}\n")
 fresh_ipset="`echo "${fresh_ipset}" | sed '/^$/d' | sort | uniq`"
 
 # refresh

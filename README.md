@@ -4,9 +4,9 @@
 
 ```sh
 #!/bin/sh
-rirs="/var/tmp/delegated-apnic-latest"
-expanded_rirs="/var/tmp/expanded-delegated-apnic-latest"
-cache="/var/tmp/asn"
+rirs="/var/cache/delegated-apnic-latest"
+expanded_rirs="/var/cache/expanded-delegated-apnic-latest"
+cache="/var/cache/asn"
 
 get-delegated-apnic-latest.sh \
 		-o "${rirs}" \
