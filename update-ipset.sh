@@ -6,10 +6,10 @@ files=""
 
 usage() {
 cat << EOF
-usage: $0 <-n SETNAME> [-i input <-c cc>] [[-a AS Number]...] [-C ASN cache directory] [[-d domain]...] [[-f file]...]
+usage: $0 <-n SETNAME> [[-c cc]...] [-i input] [[-a AS Number]...] [-C ASN cache directory] [[-d domain]...] [[-f file]...]
 	-n SETNAME
-	-i input expanded delegated apnic file
 	-c ISO 3166 2-letter code
+	-i input expanded delegated apnic file
 	-a AS Number
 	-C ASN cache directory, the directory should exists and be writable
 	-d SPF record domain name
@@ -17,16 +17,16 @@ usage: $0 <-n SETNAME> [-i input <-c cc>] [[-a AS Number]...] [-C ASN cache dire
 EOF
 }
 
-while getopts ":n:i:c:a:C:d:f:" o; do
+while getopts ":n:c:i:a:C:d:f:" o; do
 	case "${o}" in
 		n)
 			setname="${OPTARG}"
 			;;
+		c)
+			ccs="${ccs} ${OPTARG}"
+			;;
 		i)
 			input="${OPTARG}"
-			;;
-		c)
-			cc="${OPTARG}"
 			;;
 		a)
 			asns="${asns} ${OPTARG}"
@@ -53,7 +53,7 @@ while getopts ":n:i:c:a:C:d:f:" o; do
 done
 shift $((OPTIND-1))
 
-if [ -z "${setname}" -o \( -n "${cc}" -a ! -r "${input}" \) ]; then
+if [ -z "${setname}" -o \( -n "${ccs}" -a ! -r "${input}" \) ]; then
 	usage
 	exit 1
 fi
@@ -66,36 +66,49 @@ update_ipset_ipset_list_members() {
 	ipset -q list "$1" | sed -e '1,/Members:/d'
 }
 
+update_ipset_cc_ipset() {
+	local cc="$1"
+	cat "${input}" \
+		| awk -v "cc=${cc}" \
+			'BEGIN { FS = "|" } $2 == cc && $3 == "ipv4" { printf("%s/%d\n", $4, 32-log($5)/log(2)) }' \
+		| sed 's/\/32$//g'
+}
+
 update_ipset_query_asn() {
-	whois -h "whois.radb.net" -- "-i origin AS${1}" | grep -E "route6?:"
+	local asn="$1"
+	whois -h "whois.radb.net" -- "-i origin AS${asn}" | grep -E "route6?:"
 }
 
 update_ipset_get_asn_cache_file() {
-	local cache_file=`find "${cache}" -mtime -30 -type f -name "$1" 2>/dev/null | head -n 1`
+	local asn="$1"
+	local cache_file=`find "${cache}" -mtime -30 -type f -name "${asn}" 2>/dev/null | head -n 1`
 	if [ -z "${cache_file}" ]; then
-		cache_file="${cache}/$1"
-		update_ipset_query_asn "$1" > "${cache_file}"
+		cache_file="${cache}/${asn}"
+		update_ipset_query_asn "${asn}" > "${cache_file}"
 	fi
 	echo "${cache_file}"
 }
 
 update_ipset_read_asn() {
+	local asn="$1"
 	if [ -d "${cache}" ]; then
-		cat `update_ipset_get_asn_cache_file "$1"`
+		cat `update_ipset_get_asn_cache_file "${asn}"`
 	else
-		update_ipset_query_asn "$1"
+		update_ipset_query_asn "${asn}"
 	fi
 }
 
 update_ipset_asn_ipset() {
-	update_ipset_read_asn "$1" \
+	local asn="$1"
+	update_ipset_read_asn "${asn}" \
 		| grep '^route:' \
 		| awk '{ print $2 }' \
 		| sed 's/\/32$//g'
 }
 
 update_ipset_spf_ipset() {
-	dig +short "$1" TXT \
+	local spf="$1"
+	dig +short "${spf}" TXT \
 		| awk -F "\"" '{print $2}' \
 		| sed -E -e 's/[[:blank:]]+/\n/g' \
 		| grep '^include:' \
@@ -110,15 +123,11 @@ update_ipset_spf_ipset() {
 # exist ipset
 exist_ipset="`update_ipset_ipset_list_members "${setname}" | sort`"
 
-# cc
-if [ -n "${cc}" ]; then
-	cc_ipset="`\
-		cat "${input}" \
-		| awk -v "cc=${cc}" \
-			'BEGIN { FS = "|" } $2 == cc && $3 == "ipv4" { printf("%s/%d\n", $4, 32-log($5)/log(2)) }' \
-		| sed 's/\/32$//g' \
-	`"
-fi
+# ccs
+for cc in ${ccs}; do
+	cc_ipset="`update_ipset_cc_ipset "${cc}"`"
+	ccs_ipset=$(printf "${ccs_ipset}\n${cc_ipset}\n")
+done
 
 # asns
 for asn in ${asns}; do
@@ -168,7 +177,7 @@ if [ -n "${files}" ]; then
 fi
 
 # fresh ipset
-fresh_ipset=$(printf "${cc_ipset}\n${asns_ipset}\n${domains_ipset}\n${files_ipset}\n")
+fresh_ipset=$(printf "${ccs_ipset}\n${asns_ipset}\n${domains_ipset}\n${files_ipset}\n")
 fresh_ipset="`echo "${fresh_ipset}" | sed '/^$/d' | sort | uniq`"
 
 # refresh
