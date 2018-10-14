@@ -6,17 +6,18 @@ files=""
 
 usage() {
 cat << EOF
-usage: $0 <-n SETNAME> [-i input <-c cc>] [[-a AS Number]...] [-C ASN cache directory] [[-f file]...]
+usage: $0 <-n SETNAME> [-i input <-c cc>] [[-a AS Number]...] [-C ASN cache directory] [[-d domain]...] [[-f file]...]
 	-n SETNAME
 	-i input expanded delegated apnic file
 	-c ISO 3166 2-letter code
 	-a AS Number
 	-C ASN cache directory, the directory should exists and be writable
+	-d SPF record domain name
 	-f file contains ipset entries
 EOF
 }
 
-while getopts ":n:i:c:a:C:f:" o; do
+while getopts ":n:i:c:a:C:d:f:" o; do
 	case "${o}" in
 		n)
 			setname="${OPTARG}"
@@ -32,6 +33,9 @@ while getopts ":n:i:c:a:C:f:" o; do
 			;;
 		C)
 			cache="${OPTARG}"
+			;;
+		d)
+			domains="${domains} ${OPTARG}"
 			;;
 		f)
 			if [ -z "${OPTARG}" -o ! -r "${OPTARG}" ]; then
@@ -90,6 +94,19 @@ update_ipset_asn_ipset() {
 		| sed 's/\/32$//g'
 }
 
+update_ipset_spf_ipset() {
+	dig +short "$1" TXT \
+		| awk -F "\"" '{print $2}' \
+		| sed -E -e 's/[[:blank:]]+/\n/g' \
+		| grep '^include:' \
+		| awk -F ':' '{print $2}' \
+		| xargs -I '{}' dig +short '{}' TXT \
+		| awk -F "\"" '{print $2}' \
+		| sed -E -e 's/[[:blank:]]+/\n/g' \
+		| grep '^ip4:' \
+		| awk -F ':' '{print $2}'
+}
+
 # exist ipset
 exist_ipset="`update_ipset_ipset_list_members "${setname}" | sort`"
 
@@ -106,7 +123,13 @@ fi
 # asns
 for asn in ${asns}; do
 	asn_ipset="`update_ipset_asn_ipset "${asn}"`"
-	asns_ipset=$(printf "${asns_ipset}\n${asn_ipset}")
+	asns_ipset=$(printf "${asns_ipset}\n${asn_ipset}\n")
+done
+
+# SPF record domain names
+for domain in ${domains}; do
+	domain_ipset="`update_ipset_spf_ipset "${domain}"`"
+	domains_ipset=$(printf "${domains_ipset}\n${domain_ipset}\n")
 done
 
 # files
@@ -145,7 +168,7 @@ if [ -n "${files}" ]; then
 fi
 
 # fresh ipset
-fresh_ipset=$(printf "${cc_ipset}\n${asns_ipset}\n${files_ipset}\n")
+fresh_ipset=$(printf "${cc_ipset}\n${asns_ipset}\n${domains_ipset}\n${files_ipset}\n")
 fresh_ipset="`echo "${fresh_ipset}" | sed '/^$/d' | sort | uniq`"
 
 # refresh
