@@ -14,7 +14,7 @@ get-delegated-apnic-latest.sh \
 	&& expand-rir-asn.sh \
 		-i "${rirs}" \
 		-o "${expanded_rirs}" \
-		-c "${cache}" \
+		-C "${cache}" \
 	&& update-ipset.sh \
 		-n chnroute \
 		-i "${expanded_rirs}" \

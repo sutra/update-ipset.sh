@@ -6,14 +6,14 @@ cache="asn"
 
 usage() {
 cat << EOF
-usage: $0 [-i input] [-o output] [-c cache]
+usage: $0 [-i input] [-o output] [-C cache]
 	-i input
 	-o output
-	-c cache directory
+	-C cache directory
 EOF
 }
 
-while getopts ":i:o:c:" o; do
+while getopts ":i:o:C:" o; do
 	case "${o}" in
 		i)
 			input="${OPTARG}"
@@ -21,7 +21,7 @@ while getopts ":i:o:c:" o; do
 		o)
 			output="${OPTARG}"
 			;;
-		c)
+		C)
 			cache="${OPTARG}"
 			;;
 		*)
