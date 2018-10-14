@@ -83,6 +83,13 @@ update_ipset_read_asn() {
 	fi
 }
 
+update_ipset_asn_ipset() {
+	update_ipset_read_asn "$1" \
+		| grep '^route:' \
+		| awk '{ print $2 }' \
+		| sed 's/\/32$//g'
+}
+
 # exist ipset
 exist_ipset="`update_ipset_ipset_list_members "${setname}" | sort`"
 
@@ -98,11 +105,7 @@ fi
 
 # asns
 for asn in ${asns}; do
-	asn_ipset="`update_ipset_read_asn "${asn}" \
-		| grep '^route:' \
-		| awk '{ print $2 }' \
-		| sed 's/\/32$//g' \
-		`"
+	asn_ipset="`update_ipset_asn_ipset "${asn}"`"
 	asns_ipset=$(printf "${asns_ipset}\n${asn_ipset}")
 done
 
