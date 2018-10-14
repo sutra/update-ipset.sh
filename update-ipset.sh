@@ -1,6 +1,6 @@
 #!/bin/sh
 input="./expanded-delegated-apnic-latest"
-cache="/var/cache/asn"
+cache="./asn"
 asns=""
 files=""
 
