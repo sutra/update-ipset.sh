@@ -6,7 +6,7 @@ usage: $0 <-n SETNAME> [[-c cc]...] [-i input] [[-a AS Number]...] [-C ASN cache
 	-c ISO 3166 2-letter code
 	-i input expanded delegated apnic file
 	-a AS Number
-	-C ASN cache directory, the directory should exists and be writable
+	-C ASN cache directory, the directory should exist and be writable
 	-d SPF record domain name
 	-f file contains ipset entries
 EOF
