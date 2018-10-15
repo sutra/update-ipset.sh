@@ -1,11 +1,11 @@
 #!/bin/sh
 usage() {
 cat << EOF
-usage: $0 <-n SETNAME> [[-c cc]...] [-i input] [[-a AS Number]...] [-C ASN cache directory] [[-d domain]...] [[-f file]...]
+usage: $0 <-n SETNAME> [[-c cc]...] [-i input] [[-a Autonomous System Number]...] [-C ASN cache directory] [[-d domain]...] [[-f file]...]
 	-n SETNAME
 	-c ISO 3166 2-letter code
 	-i input expanded delegated apnic file
-	-a AS Number
+	-a Autonomous System Number
 	-C ASN cache directory, the directory should exist and be writable
 	-d SPF record domain name
 	-f file contains ipset entries
