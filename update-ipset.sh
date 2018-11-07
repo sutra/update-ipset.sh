@@ -158,8 +158,24 @@ if [ -n "${files}" ]; then
 			if (parts[2] != "") {
 				cidr = parts[2]
 			}
-			cmd = "dig +short \"" domain "\" | grep -E \"[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\" | xargs -I ip ipset -exist add \"" setname "\" ip/" cidr
-			system(cmd)
+
+			cmd = "dig +short \"" domain "\""
+			mod = cmd "; echo \"$?\""
+			while ((mod | getline line) > 0) {
+				if (numLines++) {
+					system("echo \"" prev "\" | grep -E \"[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+\" | xargs -I ip ipset -exist add \"" setname "\" ip/" cidr)
+				}
+				prev = line
+			}
+			status = line
+			close(mod)
+
+			if (status != 0) {
+				print "ERROR: command '\''" cmd "'\'' failed" | "cat >&2"
+				close("cat >&2")
+				exit status
+			}
+
 		} else {
 			cmd = "ipset -exist add \"" setname "\" \"" $0 "\""
 			system(cmd)
@@ -167,8 +183,12 @@ if [ -n "${files}" ]; then
 	}
 	' \
 	${files}
+	files_status=$?
 	files_ipset="`update_ipset_ipset_list_members "${files_setname}"`"
 	ipset destroy "${files_setname}"
+	if [ ${files_status} -ne 0 ]; then
+		exit ${files_status}
+	fi
 fi
 
 # fresh ipset
