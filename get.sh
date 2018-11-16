@@ -26,7 +26,7 @@ done
 shift $((OPTIND-1))
 url=$1
 
-if [ -z "${output}" ]; then
+if [ -z "${output}" -o -z "${url}" ]; then
 	usage
 	exit 1
 fi
