@@ -8,9 +8,10 @@ rirs="/var/cache/delegated-apnic-latest"
 expanded_rirs="/var/cache/expanded-delegated-apnic-latest"
 cache="/var/cache/asn"
 
-get-delegated-apnic-latest.sh \
+get.sh \
 		-o "${rirs}" \
 		-r 10 \
+		"http://ftp.apnic.net/apnic/stats/apnic/delegated-apnic-latest" \
 	&& expand-rir-asn.sh \
 		-i "${rirs}" \
 		-o "${expanded_rirs}" \

@@ -1,7 +1,5 @@
 #!/bin/sh
-output="./delegated-apnic-latest"
 max_retry_count=1
-url="http://ftp.apnic.net/apnic/stats/apnic/delegated-apnic-latest"
 
 usage() {
 cat << EOF
@@ -26,6 +24,7 @@ while getopts ":o:r:" o; do
 	esac
 done
 shift $((OPTIND-1))
+url=$1
 
 if [ -z "${output}" ]; then
 	usage
@@ -44,7 +43,7 @@ retried_count=0
 
 while [ ${retried_count} -lt ${max_retry_count} ]; do
 	retried_count=`expr ${retried_count} + 1`
-	fresh_md5=`curl -sf "${url}.md5" | awk -F ' = ' '{print $2}'`
+	fresh_md5=`curl -sf "${url}.md5" | awk -F ' = ' '{print $NF}'`
 	if [ ! -z "${fresh_md5}" ]; then
 		[ -r "${output}" ] && cached_md5=`_md5 "${output}"` && [ "${cached_md5}" = "${fresh_md5}" ] && exit 0
 
