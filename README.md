@@ -1,4 +1,4 @@
-# Expand the `asn` records into `ipv4`/`ipv6` records in RIRs
+# Update ipset based on RIRs and GeoIP
 
 ## How to use:
 
