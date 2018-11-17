@@ -26,19 +26,29 @@ get.sh \
 		-i "${rirs}" \
 		-o "${expanded_rirs}" \
 		-C "${asn_cache}" \
-	&& get.sh \
+	|| exit 1
+
+get.sh \
 		-o "${geoip_country_csv_zip}" \
 		-r 10 \
-		"${geoip_database}/GeoLite2-Country-CSV.zip" \
-	&& unzip \
+		-m 200 \
+		-n 204 \
+		"${geoip_database}/GeoLite2-Country-CSV.zip"
+exit_status=$?
+if [ ${exit_status} -eq 200 ]; then
+	unzip \
 		-oqd "${geoip_country_cache}" \
 		"${geoip_country_csv_zip}" \
 	&& rsync \
 		"${geoip_country_cache}"/*/* \
 		"${geoip_country_csv}/" \
 	&& rm \
-		-r "${geoip_country_csv}"_* \
-	&& update-ipset.sh \
+		-r "${geoip_country_csv}"_*
+elif [ ${exit_status} -ne 204 ]; then
+	exit $?
+fi
+
+update-ipset.sh \
 		-n "chnroute" \
 		-i "${expanded_rirs}" \
 		-g "${geoip_country_csv}" \
