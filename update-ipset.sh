@@ -5,6 +5,7 @@ usage: $0 <-n SETNAME> [[-c cc]...] [-i input] [[-a Autonomous System Number]...
 	-n SETNAME
 	-c ISO 3166 2-letter code
 	-i input expanded delegated apnic file
+	-g GeoIP(http://www.maxmind.com) Country CSV directory
 	-a Autonomous System Number
 	-C ASN cache directory, the directory should exist and be writable
 	-d SPF record domain name
@@ -12,7 +13,7 @@ usage: $0 <-n SETNAME> [[-c cc]...] [-i input] [[-a Autonomous System Number]...
 EOF
 }
 
-while getopts ":n:c:i:a:C:d:f:" o; do
+while getopts ":n:c:i:g:a:C:d:f:" o; do
 	case "${o}" in
 		n)
 			setname="${OPTARG}"
@@ -22,6 +23,9 @@ while getopts ":n:c:i:a:C:d:f:" o; do
 			;;
 		i)
 			input="${OPTARG}"
+			;;
+		g)
+			geoip_country_csv="${OPTARG}"
 			;;
 		a)
 			asns="${asns} ${OPTARG}"
@@ -48,7 +52,7 @@ while getopts ":n:c:i:a:C:d:f:" o; do
 done
 shift $((OPTIND-1))
 
-if [ -z "${setname}" -o \( -n "${ccs}" -a ! -r "${input}" \) ]; then
+if [ -z "${setname}" -o \( -n "${ccs}" -a \( ! -r "${input}" -a ! -d "${geoip_country_csv}" \) \) ]; then
 	usage
 	exit 1
 fi
@@ -63,10 +67,22 @@ update_ipset_ipset_list_members() {
 
 update_ipset_cc_ipset() {
 	local cc="$1"
-	cat "${input}" \
-		| awk -v "cc=${cc}" \
-			'BEGIN { FS = "|" } $2 == cc && $3 == "ipv4" { printf("%s/%d\n", $4, 32-log($5)/log(2)) }' \
+	if [ -r "${input}" ]; then
+		cat "${input}" \
+			| awk \
+				-v "cc=${cc}" \
+				'BEGIN { FS = "|" } $2 == cc && $3 == "ipv4" { printf("%s/%d\n", $4, 32-log($5)/log(2)) }' \
+			| sed 's/\/32$//g'
+	fi
+	if [ -d "${geoip_country_csv}" ]; then
+		geoname_id=`awk -v "cc=${cc}" 'BEGIN { FS = "," } $5 == cc { print $1 }' \
+			"${geoip_country_csv}/GeoLite2-Country-Locations-en.csv"`
+		awk \
+			-v "geoname_id=${geoname_id}" \
+			'BEGIN { FS = "," } $2 == geoname_id { print $1 }' \
+			"${geoip_country_csv}/GeoLite2-Country-Blocks-IPv4.csv" \
 		| sed 's/\/32$//g'
+	fi
 }
 
 update_ipset_query_asn() {
