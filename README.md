@@ -39,8 +39,8 @@ get.sh \
 	&& rm \
 		-r "${geoip_country_csv}"_* \
 	&& update-ipset.sh \
-		-n chnroute \
+		-n "chnroute" \
 		-i "${expanded_rirs}" \
 		-g "${geoip_country_csv}" \
-		-c CN
+		-c "CN"
 ```
