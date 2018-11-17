@@ -3,7 +3,7 @@ max_retry_count=1
 
 usage() {
 cat << EOF
-usage: $0 [-o output] [-r max retry count]
+usage: $0 [-o output] [-r max retry count] <URL>
 	-o output
 	-r max retry count
 EOF
