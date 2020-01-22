@@ -59,7 +59,7 @@ retried_count=0
 
 while [ ${retried_count} -lt ${max_retry_count} ]; do
 	retried_count=`expr ${retried_count} + 1`
-	fresh_md5=`curl -sf "${url}.md5" | awk -F ' = ' '{print $NF}'`
+	fresh_md5=`curl -sf "${url}.md5" | awk -F ' = ' '{print $NF}' | awk -F ' ' '{print $1}'`
 	if [ ! -z "${fresh_md5}" ]; then
 		[ -r "${output}" ] \
 			&& cached_md5=`_md5 "${output}"` \

@@ -1,11 +1,12 @@
 #!/bin/sh
 usage() {
 cat << EOF
-usage: $0 <-n SETNAME> [[-c cc]...] [-i input] [[-a Autonomous System Number]...] [-C ASN cache directory] [[-d domain]...] [[-f file]...]
+usage: $0 <-n SETNAME> [[-c cc]...] [-i input] [-g GeoIP Country CSV directory] [-l IP2Location Country CSV file] [[-a Autonomous System Number]...] [-C ASN cache directory] [[-d domain]...] [[-f file]...]
 	-n SETNAME
 	-c ISO 3166 2-letter code
 	-i input expanded delegated apnic file
 	-g GeoIP(http://www.maxmind.com) Country CSV directory
+	-l IP2Location(https://lite.ip2location.com/ip2location-lite) Country CSV file
 	-a Autonomous System Number
 	-C ASN cache directory, the directory should exist and be writable
 	-d SPF record domain name
@@ -13,7 +14,7 @@ usage: $0 <-n SETNAME> [[-c cc]...] [-i input] [[-a Autonomous System Number]...
 EOF
 }
 
-while getopts ":n:c:i:g:a:C:d:f:" o; do
+while getopts ":n:c:i:g:l:a:C:d:f:" o; do
 	case "${o}" in
 		n)
 			setname="${OPTARG}"
@@ -26,6 +27,9 @@ while getopts ":n:c:i:g:a:C:d:f:" o; do
 			;;
 		g)
 			geoip_country_csv="${OPTARG}"
+			;;
+		l)
+			ip2location_country_csv="${OPTARG}"
 			;;
 		a)
 			asns="${asns} ${OPTARG}"
@@ -52,7 +56,7 @@ while getopts ":n:c:i:g:a:C:d:f:" o; do
 done
 shift $((OPTIND-1))
 
-if [ -z "${setname}" -o \( -n "${ccs}" -a \( ! -r "${input}" -a ! -d "${geoip_country_csv}" \) \) ]; then
+if [ -z "${setname}" -o \( -n "${ccs}" -a \( ! -r "${input}" -a ! -d "${geoip_country_csv}" -a ! -r "${ip2location_country_csv}" \) \) ]; then
 	usage
 	exit 1
 fi
@@ -65,23 +69,64 @@ update_ipset_ipset_list_members() {
 	ipset -q list "$1" | sed -e '1,/Members:/d'
 }
 
+update_ipset_cc_ipset_rirs() {
+	local cc="$1"
+	local rirs="$2"
+	cat "${rirs}" \
+		| awk \
+			-v "cc=${cc}" \
+			'BEGIN { FS = "|" } $2 == cc && $3 == "ipv4" { printf("%s/%d\n", $4, 32-log($5)/log(2)) }' \
+		| sed 's/\/32$//g'
+}
+
+update_ipset_cc_ipset_geo() {
+	local cc="$1"
+	local geoip_country_csv="$2"
+	local geoname_id=`awk -v "cc=${cc}" 'BEGIN { FS = "," } $5 == cc { print $1 }' \
+		"${geoip_country_csv}/GeoLite2-Country-Locations-en.csv"`
+	awk \
+		-v "geoname_id=${geoname_id}" \
+		'BEGIN { FS = "," } $2 == geoname_id { print $1 }' \
+		"${geoip_country_csv}/GeoLite2-Country-Blocks-IPv4.csv" \
+	| sed 's/\/32$//g'
+}
+
+update_ipset_cc_ipset_ip2location() {
+	local cc="$1"
+	local ip2location_country_csv="$2"
+	local setname="`update_ipset_random_setname`"
+	ipset create "${setname}" hash:net maxelem 4294967295
+	awk \
+		-v cc="${cc}" \
+		-v setname="${setname}" \
+		'
+		BEGIN {
+			FS = ","
+		}
+		$3 == "\"" cc "\"" {
+			cmd = "ipset -exist add \"" setname "\" \"" $1 "-" $2 "\""
+			system(cmd)
+		}
+		' \
+		"${ip2location_country_csv}"
+	local ip2location_ipset="`update_ipset_ipset_list_members "${setname}"`"
+	echo "${ip2location_ipset}"
+	ipset destroy "${setname}"
+}
+
 update_ipset_cc_ipset() {
 	local cc="$1"
 	if [ -r "${input}" ]; then
-		cat "${input}" \
-			| awk \
-				-v "cc=${cc}" \
-				'BEGIN { FS = "|" } $2 == cc && $3 == "ipv4" { printf("%s/%d\n", $4, 32-log($5)/log(2)) }' \
-			| sed 's/\/32$//g'
+		local rirs_ipset="`update_ipset_cc_ipset_rirs "${cc}" "${input}"`"
+		echo "${rirs_ipset}"
 	fi
 	if [ -d "${geoip_country_csv}" ]; then
-		geoname_id=`awk -v "cc=${cc}" 'BEGIN { FS = "," } $5 == cc { print $1 }' \
-			"${geoip_country_csv}/GeoLite2-Country-Locations-en.csv"`
-		awk \
-			-v "geoname_id=${geoname_id}" \
-			'BEGIN { FS = "," } $2 == geoname_id { print $1 }' \
-			"${geoip_country_csv}/GeoLite2-Country-Blocks-IPv4.csv" \
-		| sed 's/\/32$//g'
+		local geoip_ipset="`update_ipset_cc_ipset_geo "${cc}" "${geoip_country_csv}"`"
+		echo "${geoip_ipset}"
+	fi
+	if [ -r "${ip2location_country_csv}" ]; then
+		local ip2location_ipset="`update_ipset_cc_ipset_ip2location "${cc}" "${ip2location_country_csv}"`"
+		echo "${ip2location_ipset}"
 	fi
 }
 
