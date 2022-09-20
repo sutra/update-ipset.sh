@@ -49,7 +49,7 @@ function expandASN(registry, cc, asn, date, status) {
 	while ((getline line < cacheFile) > 0) {
 		split(line, columns, "(:[ \t]+)|/")
 
-		if (columns[1] == "route") {
+		if (columns[1] == "route" && columns[3] ~ /^[0-9]+$/) {
 			type = "ipv4"
 			value = 2 ^ (32 - columns[3])
 		} else if (columns[1] == "route6") {
